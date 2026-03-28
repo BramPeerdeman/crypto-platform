@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  # Go-service
+  ingestion:
+    build: ./ingestion-service
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis:6379
+
+  # Redis
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
