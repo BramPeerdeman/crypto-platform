@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,15 +10,24 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 )
 
 type PriceTracker struct {
+	rdb *redis.Client
 	lastPrices map[string]float64
 	mu sync.RWMutex
 }
 
 func NewPriceTracker() *PriceTracker {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379", 
+		Password: "", 
+		DB:       0,
+	})
+
 	return &PriceTracker{
+		rdb: rdb,
 		lastPrices: make(map[string]float64),
 	}
 }
@@ -65,6 +75,16 @@ func (pt *PriceTracker) ProcessTrade(symbol string, price float64) {
 
 	if diff > 0.01 || diff < -0.01 {
 		pt.lastPrices[symbol] = price
+
+		channel := "price" + symbol
+		payload := fmt.Sprintf("%.2f", price)
+
+		ctx := context.Background()
+		err := pt.rdb.Publish(ctx, channel, payload).Err()
+		if err != nil {
+			log.Println("Redis Publish fout: " , err)
+		}
+		
 		pt.display(symbol, price, diff)
 	}
 }
