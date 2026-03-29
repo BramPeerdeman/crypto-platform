@@ -5,7 +5,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/prices")
-@CrossOrigin(origins = "*")
 public class CryptoPriceController {
 
     private final CryptoPriceRepository repository;
