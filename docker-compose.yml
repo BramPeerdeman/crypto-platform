@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Go-service
+  # 1. De Go Ingestion Service
   ingestion:
     build: ./ingestion-service
     depends_on:
@@ -9,13 +9,33 @@ services:
     environment:
       - REDIS_URL=redis:6379
 
-  # Redis
+  # 2. De Java Spring Boot API
+  backend:
+    build: ./backend-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/crypto_db
+      - SPRING_DATA_REDIS_HOST=redis
+
+  # 3. De React Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80" # We mappen poort 80 van Nginx naar poort 5173 op je pc
+    depends_on:
+      - backend
+
+  # 4. Redis Broker
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
 
-  # Database
+  # 5. PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     environment:
