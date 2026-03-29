@@ -64,29 +64,27 @@ func (pt *PriceTracker) ProcessTrade(symbol string, price float64) {
 	defer pt.mu.Unlock()
 
 	oldPrice, exists := pt.lastPrices[symbol]
-	
-	if !exists {
-		pt.lastPrices[symbol] = price
-		pt.display(symbol, price, 0)
+
+	if exists && oldPrice == price {
 		return
 	}
 
-	diff := ((price - oldPrice) / oldPrice) * 100
-
-	if diff > 0.01 || diff < -0.01 {
-		pt.lastPrices[symbol] = price
-
-		channel := "price" + symbol
-		payload := fmt.Sprintf("%.2f", price)
-
-		ctx := context.Background()
-		err := pt.rdb.Publish(ctx, channel, payload).Err()
-		if err != nil {
-			log.Println("Redis Publish fout: " , err)
-		}
-		
-		pt.display(symbol, price, diff)
+	diff := 0.0
+	if exists {
+		diff = ((price - oldPrice) / oldPrice) * 100
 	}
+	pt.lastPrices[symbol] = price
+
+	channel := "price." + symbol
+	payload := fmt.Sprintf("%.2f", price)
+		
+	ctx := context.Background() 
+	err := pt.rdb.Publish(ctx, channel, payload).Err()
+	if err != nil {
+		log.Println("Redis Publish fout:", err)
+	}
+
+	pt.display(symbol, price, diff)
 }
 
 func handleMessage(message []byte, pt *PriceTracker) {
