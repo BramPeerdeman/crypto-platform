@@ -14,3 +14,13 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
+
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=crypto_user
+      - POSTGRES_PASSWORD=supergeheim
+      - POSTGRES_DB=crypto_db
+    ports:
+      - "5433:5432"
