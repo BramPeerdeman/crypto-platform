@@ -18,15 +18,16 @@ import (
 )
 
 type PriceTracker struct {
-	rdb        *redis.Client
-	lastPrices map[string]float64
-	mu         sync.RWMutex
+	rdb        		 *redis.Client
+	lastPrices 		 map[string]float64
+	mu         		 sync.RWMutex
+	candleTracker *CandleTracker
 }
 
 func NewPriceTracker() *PriceTracker {
 	redisAddr := os.Getenv("REDIS_URL")
 	if redisAddr == "" {
-		redisAddr = "localhost:6379" // default for local dev
+		redisAddr = "localhost:6379" 
 	}
 
 	rdb := redis.NewClient(&redis.Options{
@@ -38,12 +39,14 @@ func NewPriceTracker() *PriceTracker {
 	return &PriceTracker{
 		rdb:        rdb,
 		lastPrices: make(map[string]float64),
+		candleTracker: NewCandleTracker(rdb),
 	}
 }
 
 type BinanceTrade struct {
 	Symbol string `json:"s"`
 	Price  string `json:"p"`
+	Quantity string `json:"q"`
 }
 
 type CombinedResponse struct {
@@ -151,7 +154,7 @@ func runConnection(ctx context.Context, tracker *PriceTracker, symbols []string)
 	}
 }
 
-func (pt *PriceTracker) ProcessTrade(symbol string, price float64) {
+func (pt *PriceTracker) ProcessTrade(symbol string, price float64, quantity float64) {
 	pt.mu.Lock()
 	defer pt.mu.Unlock()
 
@@ -170,11 +173,12 @@ func (pt *PriceTracker) ProcessTrade(symbol string, price float64) {
 	channel := "price." + symbol
 	payload := fmt.Sprintf("%.2f", price)
 
-	ctx := context.Background()
-	err := pt.rdb.Publish(ctx, channel, payload).Err()
+	err := pt.rdb.Publish(context.Background(), channel, payload).Err()
 	if err != nil {
 		slog.Error("Redis Publish failed", "error", err)
 	}
+
+	pt.candleTracker.ProcessTick(symbol, price, quantity)
 
 	pt.display(symbol, price, diff)
 }
@@ -194,7 +198,13 @@ func handleMessage(message []byte, pt *PriceTracker) {
 		return
 	}
 
-	pt.ProcessTrade(symbol, newPrice)
+	quantity, err := strconv.ParseFloat(res.Data.Quantity, 64)
+	if err != nil {
+		slog.Error("Failed to parse quantity", "error", err)
+		return
+	}
+
+	pt.ProcessTrade(symbol, newPrice, quantity)
 }
 
 func (pt *PriceTracker) display(symbol string, price float64, diff float64) {
