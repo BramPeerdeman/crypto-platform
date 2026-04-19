@@ -1,5 +1,6 @@
 package com.brampeerdeman.api;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RedisPriceReceiver implements MessageListener {
 
     private final CryptoPriceRepository repository;
-
-    // Dit is het "geheugen" van Java. Hij onthoudt hierin per munt hoe laat hij voor het laatst is opgeslagen.
     private final Map<String, Instant> lastSavedTimes = new ConcurrentHashMap<>();
+
+    @Value("${crypto.cooldown-seconds:5}")
+    private int cooldownSeconds;
 
     public RedisPriceReceiver(CryptoPriceRepository repository) {
         this.repository = repository;
@@ -30,18 +32,17 @@ public class RedisPriceReceiver implements MessageListener {
             String rawPrice = new String(message.getBody());
             String symbol = new String(message.getChannel()).replace("price.", "").toUpperCase();
 
-            // --- DE COOLDOWN CHECK ---
+            log.debug("Received price update: symbol={}, price={}", symbol, rawPrice);
+
             Instant now = Instant.now();
             Instant lastSaved = lastSavedTimes.getOrDefault(symbol, Instant.MIN);
 
-            // Is het minder dan 5 seconden geleden? Dan stoppen we hier en slaan we niet op.
-            if (Duration.between(lastSaved, now).getSeconds() < 5) {
+            if (Duration.between(lastSaved, now).getSeconds() < cooldownSeconds) {
+                log.debug("Skipping save for {} — cooldown active", symbol);
                 return;
             }
 
-            // Als we hier zijn, is de cooldown voorbij! Update de timer.
             lastSavedTimes.put(symbol, now);
-            // --------------------------
 
             Double price = Double.parseDouble(rawPrice);
             CryptoPrice record = new CryptoPrice();
@@ -50,10 +51,12 @@ public class RedisPriceReceiver implements MessageListener {
             record.setTimestamp(LocalDateTime.now());
 
             repository.save(record);
-            log.info("💾 Opgeslagen in DB (Cooldown verstreken): {} - ${}", symbol, price);
+            log.info("Saved price: symbol={}, price={}", symbol, price);
 
+        } catch (NumberFormatException e) {
+            log.error("Failed to parse price from message: {}", new String(message.getBody()), e);
         } catch (Exception e) {
-            log.error("Fout bij het opslaan van de prijs", e);
+            log.error("Unexpected error processing message", e);
         }
     }
 }
