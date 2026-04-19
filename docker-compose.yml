@@ -19,7 +19,9 @@ services:
       - redis
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/crypto_db
+      - CORS_ALLOWED_ORIGINS=http://frontend:80
       - SPRING_DATA_REDIS_HOST=redis
+      - CRYPTO_COOLDOWN_SECONDS=10
 
   # 3. De React Frontend
   frontend:
