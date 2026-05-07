@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import "./App.css";
+import CandleChart from "./components/CandleChart";
 
 interface CryptoPrice {
   id: number;
@@ -28,6 +29,8 @@ const AVAILABLE_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
 function App() {
+  const [chartInterval, setChartInterval] = useState<string>('1m');
+  const AVAILABLE_INTERVALS = ['1m', '1h', '1d'];
   const [prices, setPrices] = useState<ChartData[]>([]);
   const [symbol, setSymbol] = useState<string>("BTCUSDT");
   const [lastPrice, setLastPrice] = useState<number | null>(null);
@@ -123,6 +126,28 @@ function App() {
           </button>
         ))}
       </div>
+      <div style={{ marginBottom: '2rem', display: 'flex', gap: '10px' }}>
+  {AVAILABLE_INTERVALS.map((i) => (
+    <button
+      key={i}
+      onClick={() => setChartInterval(i)}
+      style={{
+        padding: '8px 16px',
+        backgroundColor: chartInterval === i ? '#00ff88' : '#333',
+        color: chartInterval === i ? '#1e1e2f' : 'white',
+        border: 'none',
+        borderRadius: '5px',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+      }}
+    >
+      {i}
+    </button>
+  ))}
+</div>
+
+{/* Add below the existing line chart div */}
+<CandleChart symbol={symbol} interval={chartInterval} />
 
       {loading && (
         <div style={{ textAlign: "center", color: "#888", padding: "1rem" }}>
