@@ -16,21 +16,4 @@ public class ApiApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(ApiApplication.class, args);
 	}
-
-	@Value("${cors.allowed-origins}")
-	private String allowedOrigins;
-
-	@Bean
-	public CorsFilter corsFilter() {
-		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-		CorsConfiguration config = new CorsConfiguration();
-
-		config.setAllowCredentials(true);
-		config.addAllowedOrigin(allowedOrigins);
-		config.addAllowedHeader("*");
-		config.addAllowedMethod("*");
-
-		source.registerCorsConfiguration("/**", config);
-		return new CorsFilter(source);
-	}
 }
